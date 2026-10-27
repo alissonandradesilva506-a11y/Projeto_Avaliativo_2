@@ -28,8 +28,9 @@ CREATE TABLE hoteis (
     estado VARCHAR(100) NOT NULL,
     telefone VARCHAR(20),
     comodidades VARCHAR(300),
-    avaliacao NUMERIC(2,1) NOT NULL CONSTRAINT avaliacao_range CHECK (avaliacao >= 0 and avaliacao <= 5)
+    avaliacao NUMERIC(2,2) NOT NULL CONSTRAINT avaliacao_range CHECK (avaliacao >= 0 and avaliacao <= 5)
 );
+
 --Inserts
 INSERT INTO hospedes (nome, email, telefone)
 VALUES
@@ -66,88 +67,61 @@ VALUES
 
 INSERT INTO reservas (
     id_hospede,
+    id_hotel,
     data_checkin,
     data_checkout,
     valor_diaria,
     status
 )
 VALUES
-    (1, '2026-10-10', '2026-10-13', 250.00, 'ATIVA'),
-    (2, '2026-10-15', '2026-10-18', 300.00, 'ATIVA'),
-    (3, '2026-11-05', '2026-11-07', 200.00, 'ATIVA'),
-    (6, '2026-10-10', '2026-10-13', 578.00, 'ATIVA'),
-    (5, '2026-10-15', '2026-10-18', 179.00, 'ATIVA'),
-    (16, '2026-11-05', '2026-11-07', 289.00, 'FINALIZADA'),
-    (7, '2026-10-10', '2026-10-13', 250.00, 'CANCELADA'),
-    (8, '2026-09-15', '2026-09-18', 300.00, 'FINALIZADA'),
-    (9, '2026-06-05', '2026-06-07', 200.00, 'FINALIZADA'),
-    (10, '2026-05-10', '2026-05-13', 250.00, 'FINALIZADA'),
-    (11, '2026-04-15', '2026-04-18', 300.00, 'FINALIZADA'),
-    (7, '2025-12-05', '2025-12-07', 200.00, 'CANCELADA'),
-    (13, '2025-07-26', '2025-08-01', 250.00, 'CANCELADA'),
-    (12, '2025-10-15', '2025-10-18', 300.00, 'FINALIZADA'),
-    (15, '2025-03-15', '2025-03-20', 200.00, 'FINALIZADA'),
-    (6, '2024-02-22', '2024-02-29', 150.00, 'FINALIZADA'),
-    (4, '2024-01-15', '2024-01-18', 200.00, 'FINALIZADA'),
-    (11, '2023-12-05', '2023-12-07', 200.00, 'FINALIZADA'),
-    (15, '2023-12-01', '2023-12-13', 250.00, 'FINALIZADA'),
-    (18, '2023-10-15', '2023-10-18', 300.00, 'FINALIZADA'),
-    (2, '2022-11-05', '2022-11-07', 340.00, 'CANCELADA'),
-    (22, '2022-10-10', '2022-10-13', 169.00, 'FINALIZADA'),
-    (2, '2022-04-20', '2022-04-25', 150.00, 'CANCELADA'),
-    (24, '2022-05-05', '2022-05-07', 200.00, 'FINALIZADA'),
-    (23, '2021-10-10', '2021-10-13', 250.00, 'FINALIZADA'),
-    (5, '2021-03-15', '2021-03-18', 300.00, 'FINALIZADA'),
-    (30, '2021-01-05', '2021-01-07', 200.00, 'FINALIZADA'),
-    (6, '2020-10-10', '2020-10-13', 250.00, 'FINALIZADA'),
-    (29, '2020-04-15', '2020-04-18', 210.00, 'FINALIZADA'),
-    (3, '2019-12-28', '2020-01-03', 230.00, 'FINALIZADA');
-INSERT INTO hoteis 
---Views
-CREATE OR REPLACE VIEW vw_reservas_ativas AS
-SELECT 
-    r.id_reserva,
-    hs.id_hospede,
-    hs.nome AS nome_hospede,
-    hs.email,
-    hs.telefone,
-    ht.nome,
-    ht.cidade,
-    r.data_checkin,
-    r.data_checkout,
-    r.valor_diaria,
-    (r.data_checkout - r.data_checkin) AS total_noites,
-    ((r.data_checkout - r.data_checkin) * r.valor_diaria) AS valor_total_estimado
-FROM reservas r
-JOIN hospedes hs ON r.id_hospede = hs.id_hospede
-JOIN hoteis ht ON r.id_hotel = ht.id_hotel
-WHERE r.status = 'ATIVA';
+    (1, 5, '2026-10-10', '2026-10-13', 250.00, 'ATIVA'),
+    (2, 9, '2026-10-15', '2026-10-18', 300.00, 'ATIVA'),
+    (3, 10, '2026-11-05', '2026-11-07', 200.00, 'ATIVA'),
+    (6, 2, '2026-10-10', '2026-10-13', 578.00, 'ATIVA'),
+    (5, 3, '2026-10-15', '2026-10-18', 179.00, 'ATIVA'),
+    (16, 3, '2026-11-05', '2026-11-07', 289.00, 'FINALIZADA'),
+    (7, 6, '2026-10-10', '2026-10-13', 250.00, 'CANCELADA'),
+    (8, 2, '2026-09-15', '2026-09-18', 300.00, 'FINALIZADA'),
+    (9, 11, '2026-06-05', '2026-06-07', 200.00, 'FINALIZADA'),
+    (10, 9, '2026-05-10', '2026-05-13', 250.00, 'FINALIZADA'),
+    (11, 8, '2026-04-15', '2026-04-18', 300.00, 'FINALIZADA'),
+    (7, 8, '2025-12-05', '2025-12-07', 200.00, 'CANCELADA'),
+    (13, 5, '2025-07-26', '2025-08-01', 250.00, 'CANCELADA'),
+    (12, 4, '2025-10-15', '2025-10-18', 300.00, 'FINALIZADA'),
+    (15, 3, '2025-03-15', '2025-03-20', 200.00, 'FINALIZADA'),
+    (6, 5, '2024-02-22', '2024-02-29', 150.00, 'FINALIZADA'),
+    (4, 2, '2024-01-15', '2024-01-18', 200.00, 'FINALIZADA'),
+    (11, 3, '2023-12-05', '2023-12-07', 200.00, 'FINALIZADA'),
+    (15, 3, '2023-12-01', '2023-12-13', 250.00, 'FINALIZADA'),
+    (18, 5, '2023-10-15', '2023-10-18', 300.00, 'FINALIZADA'),
+    (2, 1, '2022-11-05', '2022-11-07', 340.00, 'CANCELADA'),
+    (22, 2, '2022-10-10', '2022-10-13', 169.00, 'FINALIZADA'),
+    (2, 10, '2022-04-20', '2022-04-25', 150.00, 'CANCELADA'),
+    (24, 9, '2022-05-05', '2022-05-07', 200.00, 'FINALIZADA'),
+    (23, 4, '2021-10-10', '2021-10-13', 250.00, 'FINALIZADA'),
+    (5, 7, '2021-03-15', '2021-03-18', 300.00, 'FINALIZADA'),
+    (30, 1 '2021-01-05', '2021-01-07', 200.00, 'FINALIZADA'),
+    (6, 6, '2020-10-10', '2020-10-13', 250.00, 'FINALIZADA'),
+    (29, 7, '2020-04-15', '2020-04-18', 210.00, 'FINALIZADA'),
+    (3, 11, '2019-12-28', '2020-01-03', 230.00, 'FINALIZADA');
 
-CREATE OR REPLACE VIEW vw_resumo_gastos_hospedes AS
-SELECT 
-    hs.id_hospede,
-    hs.nome,
-    COUNT(r.id_reserva) AS quantidade_reservas,
-    COALESCE(SUM((r.data_checkout - r.data_checkin) * r.valor_diaria), 0.00) AS valor_total_gasto
-FROM hospedes hs
-LEFT JOIN reservas r ON hs.id_hospede = r.id_hospede AND r.status != 'CANCELADA'
-GROUP BY hs.id_hospede, hs.nome;
-
-CREATE OR REPLACE VIEW vw_faturamento_mensal_projetado AS
-SELECT 
-    TO_CHAR(r.data_checkin, 'YYYY-MM') AS ano_mes,
-    COUNT(r.id_reserva) AS total_reservas,
-    SUM((r.data_checkout - r.data_checkin) * r.valor_diaria) AS faturamento_total
-FROM reservas r
-WHERE r.status != 'CANCELADA'
-GROUP BY TO_CHAR(r.data_checkin, 'YYYY-MM')
-ORDER BY ano_mes DESC;
-
-CREATE OR REPLACE VIEW vw_hoteis_por_cidade AS
-SELECT
-    ht.nome,
-    ht.telefone,
-    ht.comodidades,
-    ht.avaliação
-FROM hoteis ht
-GROUP BY cidade;
+INSERT INTO hoteis (
+    nome,
+    cidade,
+    estado,
+    telefone,
+    comodidades,
+    avaliacao
+)
+VALUES
+    ('Refúgio da Serra', 'Campos de Jordão', 'SP', '00869420', 'Lareira, Spa, Estacionamento, Café da manhã', 4.9),
+    ('Casa Maré', 'Rio de Janeiro', 'RJ', '00862213', 'Piscina, Café da manhã, Wi-Fi, Bicicletas', 4.8),
+    ('Alto Paulista', 'São Paulo', 'SP', '00868532', 'Rooftop, Academia, Wi-Fi, Coworking', 4.6),
+    ('Descanso Fulero', 'Teresina', 'PI', '00866767', 'Estacionamento, Ar-condicionado, Restaurante, Piscina', 4.4),
+    ('Mangue Vivo', 'Camaçari', 'BA', '00867532', 'Café da manhã, Serviço, Pescaria, Academia', 3.9),
+    ('Repouso das Cajazeiras', 'Timon', 'PI', '00867890', 'Ar-condicionado, Café da manhã, Academia, Rooftop', 4.5),
+    ('Regresso Real', 'Imperatriz', 'MA', '00863487', 'Serviço, Restaurante, Estacionamento, Folias', 4.6),
+    ('Teoria da folga', 'Criciúma', 'SC', '00888444', 'Relatividade, Estacionamento, Café da manhã, Academia', 4.1),
+    ('Gravatinas', 'Gravataí', 'RS', '00865432', 'Vinho, Spa, Gravatas, Gravata-Borboleta', 2.9),
+    ('Sonho Industrial', 'Fordlândia', 'PA', '00868363', 'Centro de convenções, Recepção, Estacionamento, Café da manhã', 4.0),
+    ('Transição Mundial', 'Acrelândia', 'AC', '02496800', 'Experiências, Espiritualismo, Dinossauros, Alienigenas', 2.5);
