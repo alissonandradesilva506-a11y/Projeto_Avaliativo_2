@@ -1,0 +1,126 @@
+pip install fastapi uvicorn supabase redis python-dotenv pydantic
+
+import os
+from dotenv import load_dotenv
+from supabase import create_client, Client
+import redis
+
+load_dotenv()
+
+SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://jbntyyhjlmljidnfwfsp.supabase.co")
+SUPABASE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "sb_publishable_BRPp4MRehuMgsh8od_MyGQ_4BsY8BCy")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+
+from pydantic import BaseModel, Field
+from datetime import date
+from decimal import Decimal
+
+class ReservaCreate(BaseModel):
+    id_hospede: int
+    id_hotel: int
+    data_checkin: date
+    data_checkout: date
+    valor_diaria: Decimal = Field(max_digits=10, decimal_places=2)
+
+from fastapi import FastAPI, HTTPException, Query, status
+import json
+from datetime import datetime
+from config import supabase, redis_client
+from schemas import ReservaCreate
+
+app = FastAPI(title="Estadia")
+
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
+        return super().default(obj)
+
+@app.get("/api/hoteis", status_code=status.HTTP_200_OK)
+def get_hoteis_por_cidade(cidade: str = Query(..., description="Nome da cidade para busca")):
+    cidade_key = cidade.strip().lower()
+    cache_key = f"hoteis:cidade:{cidade_key}"
+
+    try:
+      cached_data = redis_client.get(cache_key)
+        if cached_data:
+            return {"source": "cache", "data": json.loads(cached_data)}
+        response = supabase.table("hoteis").select("*").ilike("cidade", f"%{cidade_key}%").execute()
+        hoteis = response.data
+
+        if hoteis:
+            redis_client.setex(cache_key, 300, json.dumps(hoteis, cls=DateTimeEncoder))
+
+        return {"source": "database", "data": hoteis}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# -------------------------------------------------------------------------
+# 2. CRIAÇÃO DE RESERVA COM CONCORRÊNCIA (Redis Lock)
+# -------------------------------------------------------------------------
+@app.post("/api/reservas", status_code=status.HTTP_201_CREATED)
+def criar_reserva(reserva: ReservaCreate):
+    # Converte as datas para string para montar a chave do lock
+    checkin_str = reserva.data_checkin.isoformat()
+    checkout_str = reserva.data_checkout.isoformat()
+    
+    # Chave única que representa o recurso concorrente (Hotel + Período)
+    lock_key = f"lock:hotel:{reserva.id_hotel}:{checkin_str}:{checkout_str}"
+    
+    # Tenta adquirir o Lock (nx=True garante que só cria se não existir)
+    # ex=10 define que o lock expira em 10 segundos caso a aplicação caia no meio do processo
+    adquiriu_lock = redis_client.set(lock_key, str(reserva.id_hospede), nx=True, ex=10)
+
+    if not adquiriu_lock:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este hotel já possui uma tentativa de reserva em andamento para estas datas. Tente novamente em instantes."
+        )
+
+    try:
+        # Validação no Supabase: Verifica se já existe reserva CONFIRMADA/ATIVA sobreposta
+        # Lógica SQL: (checkin_existente <= checkout_solicitado) AND (checkout_existente >= checkin_solicitado)
+        query = supabase.table("reservas").select("id_reserva") \
+            .eq("id_hotel", reserva.id_hotel) \
+            .eq("status", "ATIVA") \
+            .lte("data_checkin", checkout_str) \
+            .gte("data_checkout", checkin_str) \
+            .execute()
+
+        if query.data:
+            # Se já houver conflito real no banco, remove o lock e rejeita
+            redis_client.delete(lock_key)
+            raise HTTPException(status_code=400, detail="O hotel já está reservado de forma definitiva neste período.")
+
+        # Insere a nova reserva no Supabase
+        nova_reserva_response = supabase.table("reservas").insert({
+            "id_hospede": reserva.id_hospede,
+            "id_hotel": reserva.id_hotel,
+            "data_checkin": checkin_str,
+            "data_checkout": checkout_str,
+            "valor_diaria": float(reserva.valor_diaria),
+            "status": "ATIVA"
+        }).execute()
+
+        # Invalida o cache da cidade para atualizar a exibição se necessário
+        hotel_query = supabase.table("hoteis").select("cidade").eq("id_hotel", reserva.id_hotel).single().execute()
+        if hotel_query.data:
+            cidade_hotel = hotel_query.data["cidade"].lower()
+            redis_client.delete(f"hoteis:cidade:{cidade_hotel}")
+
+        # Libera o lock com sucesso
+        redis_client.delete(lock_key)
+
+        return {"message": "Reserva criada com sucesso!", "data": nova_reserva_response.data}
+
+    except HTTPException:
+        # Repassa exceções HTTP criadas dentro do bloco try (como o erro 400 de quarto ocupado)
+        raise
+    except Exception as e:
+        # Garante a liberação do lock em caso de falhas inesperadas de rede ou banco de dados
+        redis_client.delete(lock_key)
+        raise HTTPException(status_code=500, detail=str(e))
