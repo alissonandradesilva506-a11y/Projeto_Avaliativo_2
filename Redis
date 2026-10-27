@@ -1,0 +1,29 @@
+SADD comodidade:piscina 10 20 30 40
+SADD comodidade:academia 20 40 50
+SADD comodidade:wifi 10 20 30 40 50
+
+SINTER comodidade:piscina comodidade:academia
+
+SDIFF comodidade:piscina comodidade:academia
+
+GEOADD hoteis:localizacoes -38.5266 -3.7319 "hotel_10"
+GEOADD hoteis:localizacoes -38.5644 -3.7431 "hotel_20"
+GEOADD hoteis:localizacoes -34.8813 -8.0539 "hotel_recife_30"
+
+GEORADIUS hoteis:localizacoes -38.5200 -3.7300 15 km WITHDIST
+
+WATCH hotel:10:vagas:2026-11-10
+
+GET hotel:10:vagas:2026-11-10
+
+MULTI
+
+DECR hotel:10:vagas:2026-11-10
+
+EXEC
+
+PUBLISH canal:hotel:10 "{\"id_reserva\": 502, \"status\": \"ATIVA\"}"
+
+SUBSCRIBE canal:hotel:10
+
+WATCH hotel:10:vagas:2026-11-10
