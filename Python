@@ -124,3 +124,55 @@ def criar_reserva(reserva: ReservaCreate):
         # Garante a liberação do lock em caso de falhas inesperadas de rede ou banco de dados
         redis_client.delete(lock_key)
         raise HTTPException(status_code=500, detail=str(e))
+
+def registrar_visualizacao_hotel(id_hotel: int):
+    # Incrementa em 1 o score do 'id_hotel' dentro do ranking geral
+    redis_client.zincrby("hoteis:ranking_popularidade", 1, str(id_hotel))
+
+def obter_hoteis_populares():
+    hoteis_populares = redis_client.zrevrange("hoteis:ranking_popularidade", 0, 4, withscores=True)
+    return [{"id_hotel": int(id), "visualizacoes": int(score)} for id, score in hoteis_populares]
+
+def iniciar_checkout_temporario(id_hotel: int, id_hospede: int, data_in: str, data_out: str):
+    hold_key = f"hold:hotel:{id_hotel}:{data_in}:{data_out}"
+
+    sucesso = redis_client.set(hold_key, str(id_hospede), ex=900, nx=True)
+    return sucesso  # Retorna True se conseguiu segurar, False se já estava ocupado
+
+def cancelar_checkout_temporario(id_hotel: int, data_in: str, data_out: str):
+    hold_key = f"hold:hotel:{id_hotel}:{data_in}:{data_out}"
+    redis_client.delete(hold_key)
+
+def registrar_historico_visita(id_hospede: int, id_hotel: int):
+    history_key = f"hospede:{id_hospede}:historico"
+    
+    redis_client.lrem(history_key, 0, str(id_hotel))
+    
+    redis_client.lpush(history_key, str(id_hotel))
+
+    redis_client.ltrim(history_key, 0, 4)
+
+def obter_historico_visita(id_hospede: int):
+    history_key = f"hospede:{id_hospede}:historico"
+    return redis_client.lrange(history_key, 0, -1)
+
+def verificar_limite_requisicoes(ip_usuario: str):
+    rate_key = f"rate:limit:{ip_usuario}"
+
+    requisicoes_atuais = redis_client.incr(rate_key)
+
+    if requisicoes_atuais == 1:
+        redis_client.expire(rate_key, 60)
+
+    if requisicoes_atuais > 60:
+        raise HTTPException(status_code=429, detail="Muitas requisições. Tente novamente em um minuto.")
+
+def deslogar_e_bloquear_token(token_jwt: str, tempo_expiracao_segundos: int):
+    blacklist_key = f"blacklist:token:{token_jwt}"
+
+    redis_client.setex(blacklist_key, tempo_expiracao_segundos, "revogado")
+
+def verificar_se_token_valido(token_jwt: str):
+    blacklist_key = f"blacklist:token:{token_jwt}"
+    if redis_client.exists(blacklist_key):
+        raise HTTPException(status_code=401, detail="Token revogado. Faça login novamente.")
